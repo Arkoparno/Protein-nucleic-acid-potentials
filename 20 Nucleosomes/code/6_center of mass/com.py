@@ -3,12 +3,12 @@ import csv
 from Bio.PDB import PDBParser
 from Bio.PDB.Polypeptide import is_aa
 
-# ========== USER SETTINGS ==========
-PDB_FOLDER    = "pdbs"               # <-- point this at your folder of .pdb files
+# USER SETTINGS 
 OUTPUT_FOLDER = "pdb_separate_COMs"
+PDB_FOLDER    = "pdbs"               # <-- point this at your folder of .pdb files
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-# ========= ATOM CATEGORIES =========
+#  ATOM CATEGORIES 
 # only standard deoxy‑nucleotides
 DNA_RES_NAMES = {"DA", "DT", "DG", "DC"}
 DNA_ATOMS = {
@@ -18,7 +18,7 @@ DNA_ATOMS = {
 }
 
 BACKBONE_ATOMS = {'N', 'CA', 'C', 'O'}
-# -----------------------------------
+# 
 
 def get_com(atom_list):
     """Center of mass (unweighted) of a list of Atom objects."""
@@ -93,7 +93,7 @@ def write_csv(path, header, data):
         writer.writerow(header)
         writer.writerows(data)
 
-# ========== MAIN ==========
+# MAIN 
 parser = PDBParser(QUIET=True)
 
 for fn in os.listdir(PDB_FOLDER):
@@ -130,7 +130,7 @@ for fn in os.listdir(PDB_FOLDER):
                 prot_rows
             )
 
-        print(f"✅ {pdb_id} done")
+        print(f" {pdb_id} done")
 
     except Exception as e:
-        print(f"❌ {pdb_id} error: {e}")
+        print(f" {pdb_id} error: {e}")
