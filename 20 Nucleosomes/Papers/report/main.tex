@@ -1,0 +1,367 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage[round]{natbib} % round gives (Author, Year)
+\bibliographystyle{plainnat} % or abbrvnat, unsrtnat, etc.
+
+
+% Reduce spacing between sections
+\titlespacing*{\section}{1pt}{1ex plus 1ex minus .2ex}{0.5ex plus .2ex}
+
+\begin{document}
+
+% ================= TITLE PAGE =================
+\begin{titlepage}
+\centering
+{\Large\bfseries Finding Distance and Orientation Dependent Statistical Potential for Protein–Nucleic Acid Interactions\par}
+\vspace{0.5cm}
+{\normalsize A Report Submitted in Fulfilment of the Requirement for the Summer Internship\par}
+\vspace{0.5cm}
+{\large By\par}
+{\bfseries Arkoparno Das\par}
+\vspace{0.5cm}
+
+% Optional images side-by-side
+\includegraphics[width=0.38\textwidth]{papers/imsc.png} \hspace{1cm}
+\includegraphics[width=0.3\textwidth]{papers/wbsu.png}
+
+\vspace{4 cm}
+{\large Under the supervision of\par}
+{\bfseries Dr. Debayan Chakraborty\par}
+{\normalsize Professor, Theoretical Physics\par}\
+{\normalsize The Institute of Mathematical Sciences (IMSc), Chennai\par}
+{\footnotesize IV Cross Road, CIT Campus, Taramani, Chennai 600 113, Tamil Nadu, India\par}
+
+\vspace{0.8cm}
+{\large FROM\par}
+{\bfseries Bidhannagar College, West Bengal State University\par}
+{\footnotesize City Center, 3rd Ave, EB-2, Sector 1, Bidhannagar, Kolkata, West Bengal 700064\par}
+
+\vspace{0.5 cm}
+{\large AND \par}
+{\bfseries INDIAN INSTITUTE OF TECHNOLOGY -- MADRAS (IIT–Madras)\par}
+{\footnotesize Indian Institute Of Technology, Chennai, Tamil Nadu 600036\par}
+
+\vfill
+
+\end{titlepage}
+
+\setcounter{tocdepth}{2} % include sections and subsections
+\tableofcontents
+\newpage
+
+\section*{Abstract}
+\addcontentsline{toc}{section}{Abstract}
+Protein--nucleic acid interactions play an important role in processes such as gene regulation, 
+DNA repair, and RNA processing. Understanding the geometry and energetics of these interactions can help improve computational models for docking, binding site prediction, and functional annotation. In this project, we focus on developing a distance- and orientation-dependent statistical potential for protein--DNA and protein--RNA complexes. To ensure unbiased statistics, a non-redundant dataset of high-resolution structures was curated from the Protein Data Bank, with redundancy reduction performed using sequence clustering tools. For each protein residue and nucleotide, centers of mass were calculated for key structural components---protein backbone and side chain, and nucleotide phosphate, sugar, and base. Using these centroids, pairwise distances and orientation angles $(\theta, \phi)$ were computed for all residue--nucleotide contacts within a defined cutoff. The resulting distributions were normalized and transformed into statistical potentials through Boltzmann inversion, generating energy landscapes that capture both spatial and angular preferences of interaction. While this report presents the methodology and preliminary visualizations, the approach lays the foundation for a more comprehensive potential that could be applied in molecular modeling and bioinformatics pipelines.
+
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+
+Protein--nucleic acid complexes (e.g., protein--DNA/RNA assemblies) are central to gene regulation, replication, transcription, and repair \cite{Zhu2020}. Computational modeling of these complexes remains a challenge because it must account for both the chemical specificity and the precise geometrical complementarity of the interface \cite{Yu2019}. In practice, empirical (knowledge-based) statistical potentials derived from databases of known structures provide effective scoring functions for biomolecular binding and folding \cite{Yu2019}. These potentials are based on the observed frequency of structural features that follow a Boltzmann-like distribution, such that the potential energy $U$ relates observed contact probabilities to effective free energies \cite{Yu2019}. In this way, millions of protein and protein--nucleic acid complexes in the Protein Data Bank (PDB) can be mined to extract pseudo-potentials that correlate with binding affinity and structural quality \cite{Yu2019}.
+
+However, most conventional potentials depend only on pairwise distance. Protein--nucleic acid interfaces are inherently directional: precise alignment of hydrogen-bond donors/acceptors and aromatic stacking angles is critical for specificity. Incorporating angular orientation into the potential can therefore capture interaction preferences that distance alone misses. Indeed, recent orientation-sensitive models have outperformed distance-only scores. For instance, Zhou and Skolnick \cite{Zhou2011} introduced a generalized orientation-dependent all-atom potential and showed it far outperforms its distance-only counterpart (DFIRE) in recognizing native protein folds. Likewise, Takeda et al. \cite{Takeda2013} developed a residue-level orientation-dependent potential for transcription factor--DNA docking, reporting significantly higher docking accuracy when $(\theta, \phi)$ angles are included. These results suggest that a statistical potential $U(r, \theta, \phi)$, depending on both intermolecular distance $r$ and orientation angles $\theta, \phi$, can more faithfully model the geometry of protein--DNA/RNA binding.
+
+In this work, we will build a large, non-redundant dataset of protein--DNA/RNA complexes, compute the centers of mass (centroids) of protein residues (backbone/side chain) and nucleotide fragments (phosphate, sugar, base), and measure all pairwise distances $r$ and angles $(\theta, \phi)$ between centroids across the interface. From these statistics, we will compute distribution functions $g(r)$, $g(\theta)$, $g(\phi)$, and their joint distribution $g(r, \theta, \phi)$, and apply Boltzmann inversion to obtain a three-dimensional statistical potential. The workflow follows established methods for knowledge-based potentials, with the novel emphasis on orientation. Throughout, we will filter our dataset by sequence identity (e.g., using MMseqs2) to ensure non-redundancy.
+
+\section*{Data Collection}
+\addcontentsline{toc}{section}{Data Collection}
+
+Protein--nucleic acid complex structures were obtained from the Protein Data Bank (PDB) (\url{https://www.rcsb.org}), which serves as the primary repository of experimentally determined 3D biomolecular structures. Initially, a broad dataset of more than 3000 protein--DNA and protein--RNA interaction structures was downloaded. In addition, reference structures of all 20 nucleosomes were downloaded from the PDB for residue geometry checks and centroid calculations. Only X-ray crystallographic structures with resolution $< 2.0$~\AA\ were retained, ensuring high coordinate accuracy.
+
+For the proof-of-concept phase, a smaller and more homogeneous subset was used: approximately 20 nucleosome core particle structures (histone--DNA complexes) were selected as the representative dataset. These complexes were chosen because they are well-characterized, high-resolution examples of stable protein--DNA interactions, and they provide a consistent framework for initial analysis.
+
+\newpage
+\section*{Redundancy Filtering}
+\addcontentsline{toc}{section}{Redundancy Filtering}
+
+
+To minimize statistical bias arising from overrepresented protein and nucleic acid families, a redundancy reduction step was implemented. MMseqs2 (Many-against-Many Sequence Searching) was selected for clustering due to its high computational efficiency and scalability, offering significant performance advantages over traditional tools such as CD-HIT and UCLUST.
+
+All protein and nucleic acid sequences were first retrieved in FASTA format from the PDB using the RCSB API and Biopython scripts. Clustering was then performed separately for protein chains and nucleic acid chains to ensure that both components of the complexes were independently non-redundant.
+
+An iterative clustering approach was adopted, running MMseqs2 over identity thresholds ranging from $1\%$ to $100\%$ to systematically evaluate the effect of different cutoffs on dataset size. 
+
+Following the complete $1\%$--$100\%$ clustering sweep, a $30\%$ sequence identity cutoff was selected for the final dataset. The selection was based on the following rationale:
+\begin{itemize}
+    \item \textbf{Avoiding the ``twilight zone'' bias:} Below $25\%$ sequence identity, structural similarity may still persist, but sequence similarity becomes unreliable for accurate grouping. The $30\%$ threshold is widely accepted in structural bioinformatics as a safe limit for generating non-redundant datasets.
+    \item \textbf{Maximizing structural diversity:} At higher cutoffs (e.g., $50\%$ or $70\%$), the dataset was dominated by similar histone variants, leading to reduced diversity. The $30\%$ cutoff retained a broader range of unique structures.
+\end{itemize}
+
+After redundancy filtering at $30\%$ identity, the dataset size was reduced accordingly for downstream analysis.
+
+
+\newpage
+\section*{Computing Residue Centroids}
+\addcontentsline{toc}{section}{Computing Residue Centroids}
+
+To enable a simplified geometric representation of protein--nucleic acid complexes, each residue or nucleotide fragment was reduced to one or more centroid points representing its major functional groups. This abstraction facilitates downstream analyses such as contact detection, interaction geometry, and statistical modeling, while reducing computational complexity.
+
+\subsection*{Protein Residues}
+Two centroids were computed for each protein residue:
+\begin{itemize}
+    \item \textbf{Backbone centroid (bb)}: Average coordinates of backbone atoms N, C$\alpha$, C, and O.
+    \item \textbf{Side-chain centroid (sc)}: Average coordinates of all remaining heavy atoms in the residue (excluding backbone atoms). For glycine, which lacks a side chain beyond H, a null or placeholder value was assigned for the side-chain centroid.
+\end{itemize}
+
+\subsection*{Nucleotide Residues}
+Three centroids were computed for each nucleotide residue, following functional partitioning commonly used in DNA/RNA binding studies:
+\begin{itemize}
+    \item \textbf{Phosphate (P)}: Includes the phosphorus atom and its directly bonded oxygen atoms.
+    \item \textbf{Sugar (S)}: Includes all carbon and oxygen atoms forming the sugar ring.
+    \item \textbf{Base (B)}: Includes all nitrogen and carbon atoms forming the aromatic base (purine or pyrimidine).
+\end{itemize}
+
+\subsection*{Methodology}
+\begin{enumerate}
+    \item Each PDB file was parsed using Biopython to extract atomic coordinates and residue-level metadata (chain ID, residue name, residue ID).
+    \item Residues were classified as amino acids or nucleotides based on standard three-letter or one-letter codes.
+    \item Coordinates for each group were averaged to compute the center of mass (COM).
+    \item All calculations were performed using NumPy for vectorized efficiency.
+\end{enumerate}
+
+All COM data were stored in \texttt{pdb\_protein\_COM.csv} and \texttt{pdb\_dna\_COM.csv} for downstream analysis.
+
+\newpage
+\section*{Defining Interaction Pairs}
+\addcontentsline{toc}{section}{Defining Interaction Pairs}
+
+After computing centroids, all potential protein--nucleotide interaction pairs were enumerated.  
+Each interaction consisted of:
+\begin{itemize}
+    \item \textbf{Protein residue:} identified by chain ID, residue number, and centroid type (backbone ``bb'' or side-chain ``sc'').
+    \item \textbf{Nucleotide:} identified by chain ID, residue number, and centroid type (phosphate ``P'', sugar ``S'', or base ``B'').
+\end{itemize}
+
+For each complex, every protein residue centroid was paired with every nucleotide centroid within the same structure. The interaction type was assigned by centroid categories (e.g., \texttt{bb\_to\_P}, \texttt{sc\_to\_B}).
+
+Unlike approaches such as GOAP or ANDIS, which define atom-wise local reference frames for each residue or base, this study employed a global reference frame based on the vector from the protein centroid to the nucleotide centroid. This simplification maintains biologically meaningful spatial relationships while reducing computational complexity.
+
+All selected pairs were recorded in \texttt{interactions.csv} with the following columns:
+\begin{quote}
+\texttt{pdb\_id, aa\_type, aa\_resid, aa\_chain, dna\_type, dna\_resid, dna\_chain, interaction\_type}
+\end{quote}
+\vspace{1 cm}
+
+\includegraphics[width=0.4\textwidth]{papers/sna.png} \hspace{1 cm}
+\includegraphics[width=0.4\textwidth]{papers/download.png}
+
+\vspace{2 cm}
+
+\includegraphics[width=1\textwidth]{papers/Screenshot 2025-08-06 at 7.38.51 PM.png}
+
+\newpage
+\section*{Computing Distance and Orientations}
+\addcontentsline{toc}{section}{Computing Distance and Orientations}
+\subsection*{Data Preparation}
+The list of interaction pairs (\texttt{interactions.csv}) was loaded alongside the precomputed centroid tables (\texttt{pdb\_protein\_COM.csv} and \texttt{pdb\_dna\_COM.csv}) using Pandas.
+
+\subsection*{Vector and Distance Calculation}
+For each interaction:
+\begin{enumerate}
+    \item Retrieve the centroid coordinates based on the interaction type (e.g., \texttt{bb\_x, bb\_y, bb\_z} for backbone vs. \texttt{P\_x, P\_y, P\_z} for phosphate).
+    \item Compute the vector:
+    \[
+    \vec{v} = \text{DNA}_{\text{COM}} - \text{Protein}_{\text{COM}}
+    \]
+    \item Compute the Euclidean distance:
+    \[
+    r = \sqrt{v_x^2 + v_y^2 + v_z^2}
+    \]
+    \item Discard pairs with $r = 0$ or invalid (NaN) coordinates.
+\end{enumerate}
+
+\subsection*{Orientation Angles}
+Two orientation angles were calculated for each valid pair:
+\begin{itemize}
+    \item \textbf{Polar angle} ($\theta$) — inclination from the $z$-axis:
+    \[
+    \theta = \arccos\left(\frac{v_z}{r}\right)
+    \]
+    Values were clipped to $[-1, 1]$ before applying $\arccos$, then converted to degrees ($0^\circ$--$180^\circ$).
+    \item \textbf{Azimuthal angle} ($\phi$) — rotation in the $xy$-plane:
+    \[
+    \phi = \mathrm{atan2}(v_y, v_x) \ \bmod \ 2\pi
+    \]
+    Converted to degrees ($0^\circ$--$360^\circ$).
+\end{itemize}
+
+\subsection*{Output}
+The resulting dataset (\texttt{interaction\_orientations.csv}) contained the following fields:
+\begin{quote}
+\texttt{pdb\_id, aa\_type, aa\_resid, aa\_chain, dna\_type, dna\_resid, dna\_chain, interaction\_type, r, $\theta$, $\phi$}
+\end{quote}
+
+
+
+\newpage
+\section*{Results: Histogram and Potential Calculation}
+\addcontentsline{toc}{section}{Results: Histogram and Potential Calculation}
+
+To quantify the spatial preferences of protein--nucleotide interactions, all recorded interaction pairs were aggregated, and distribution functions along with corresponding potentials of mean force (PMFs) were computed.  
+Each amino acid--nucleotide--centroid interaction type (e.g., \texttt{Ala--A, bb\_to\_P}) was treated independently.
+
+\subsection*{Binning Strategy}
+\begin{itemize}
+    \item \textbf{Radial distance} ($r$): Range $0$--$150$ \AA{}, divided into 151 bins ($\Delta r \approx 1$ \AA{}).
+    \item \textbf{Polar angle} ($\theta$): Range $0^\circ$--$180^\circ$, divided into 36 bins ($\Delta \theta = 5^\circ$).
+    \item \textbf{Azimuthal angle} ($\phi$): Range $0^\circ$--$360^\circ$, divided into 72 bins ($\Delta \phi = 5^\circ$).
+\end{itemize}
+
+The coordinate system is global, with the vector
+\[
+\vec{v} = \mathrm{DNA}_{\mathrm{COM}} - \mathrm{Protein}_{\mathrm{COM}}
+\]
+defined for each interaction pair.
+
+\subsection*{Counting and Normalization}
+
+Histogram counts $n(r)$, $n(\theta)$, and $n(\phi)$ were computed for each interaction subset using \texttt{numpy.histogram}.
+
+\paragraph{Radial distribution $g(r)$:}
+\[
+g(r) = \frac{n(r)}{4\pi r^{2} \, \Delta r \, \rho}
+\]
+where $\rho$ is the average particle density for the given interaction set.
+
+\paragraph{Polar distribution $g(\theta)$:}
+Normalized by the Jacobian factor $\sin\theta$ to account for the solid angle:
+\[
+g(\theta) = \frac{n(\theta)}{2\pi \, \sin\theta \, \Delta\theta}
+\]
+
+\paragraph{Azimuthal distribution $g(\phi)$:}
+Uniform normalization over $[0, 2\pi)$:
+\[
+g(\phi) = \frac{n(\phi)}{\Delta\phi}
+\]
+
+\subsection*{Boltzmann Inversion}
+
+Potentials of mean force were computed via Boltzmann inversion:
+\[
+U(r) = -k_{B}T \ln g(r), \quad
+U(\theta) = -k_{B}T \ln g(\theta), \quad
+U(\phi) = -k_{B}T \ln g(\phi)
+\]
+where:
+\[
+k_{B}T \approx 0.593 \ \mathrm{kcal/mol} \quad \text{at} \quad T = 300 \ \mathrm{K}.
+\]
+Empty bins ($g=0$) were clipped or shifted to avoid $-\infty$ values.
+
+\subsection*{Combined Potential}
+
+Assuming additivity of radial, polar, and azimuthal contributions:
+\[
+U_{\mathrm{total}}(r, \theta, \phi) = U(r) + U(\theta) + U(\phi)
+\]
+This potential was stored as a 3D grid and later flattened for visualization.
+
+\subsection*{Implementation}
+
+\begin{itemize}
+    \item \textbf{Data source:} \texttt{interaction\_orientations.csv} containing all $r$, $\theta$, and $\phi$ values.
+    \item \textbf{Processing:} Python scripts (\texttt{NumPy}, \texttt{Pandas}) for histogramming and PMF calculation.
+    \item \textbf{Output:} Potential tables for each interaction type, saved for downstream modeling.
+\end{itemize}
+
+\newpage
+\section*{Visualization}
+\addcontentsline{toc}{section}{Visualization}
+
+To interpret the computed potentials of mean force, visual plots were generated for every amino acid--nucleotide--centroid interaction type.  
+For each interaction set, the following visualizations were produced:
+
+\subsection*{Plot Types}
+
+\paragraph{1. 2D Heatmaps (three per interaction type):}
+\begin{itemize}
+    \item $U(r, \theta)$ at fixed $\phi$ — reveals preferred distance--polar angle combinations.
+    \item $U(r, \phi)$ at fixed $\theta$ — highlights azimuthal orientation preferences.
+    \item $U(\theta, \phi)$ at fixed $r$ — visualizes directional tendencies in angular space.
+\end{itemize}
+
+All heatmaps used a logarithmic color scale (\texttt{LogNorm} in \texttt{Matplotlib}) to enhance contrast in low-energy regions.
+
+\paragraph{Axes:}
+\begin{itemize}
+    \item $r$: radial distance in \AA{}.
+    \item $\theta$: polar angle in degrees ($0^\circ$--$180^\circ$).
+    \item $\phi$: azimuthal angle in degrees ($0^\circ$--$360^\circ$).
+    \item Energy: kcal/mol.
+\end{itemize}
+
+\paragraph{2. 3D Scatter Plots:}
+\begin{itemize}
+    \item Each point represents a triplet $(r, \theta, \phi)$ for a given interaction type.
+    \item Points are colored by the total potential $U_{\text{total}}$ to illustrate the full spatial energy landscape.
+    \item These plots are useful for spotting clusters of favorable geometries.
+\end{itemize}
+
+\subsection*{Scale of Analysis}
+
+We analyzed:
+\[
+20 \ \text{amino acids} \times 4 \ \text{nucleotides} \times 6 \ \text{interaction categories} \times 4 \ \text{plot types}
+\]
+\[
+= 1{,}920 \ \text{plots \ in \ total}.
+\]
+
+This exhaustive coverage ensures that all interaction types are represented in multiple geometric views.
+\printindex
+
+\newpage
+\section*{Repository and Data}
+\addcontentsline{toc}{section}{Repository and Data}
+
+All code, scripts, and processed CSV outputs will be made publicly available in a GitHub repository for transparency and reproducibility.
+
+\textbf{Repository (placeholder):} \url{https://github.com/Arkoparno/Protein-nucleic-acid-potentials.git}
+
+\vspace{2 cm}
+
+\section*{References}
+\addcontentsline{toc}{section}{References}
+
+
+
+\bibitem{Huang2014}
+Huang, S.-Y., and Zou, X.
+\newblock A knowledge-based scoring function for protein--RNA interactions derived from a statistical mechanics-based iterative method.
+\newblock {\em Nucleic Acids Research}, 42(7):e55, 2014.
+\newblock \doi{10.1093/nar/gku077}.
+
+\bibitem{Takeda2013}
+Takeda, T., Corona, R. I., and Guo, J.
+\newblock A knowledge-based orientation potential for transcription factor--DNA docking.
+\newblock {\em Bioinformatics}, 29(3):322--330, 2013.
+\newblock \doi{10.1093/bioinformatics/bts699}.
+
+\bibitem{Yu2019}
+Yu, Z., Yao, Y., Deng, H., and Yi, M.
+\newblock ANDIS: An atomic angle- and distance-dependent statistical potential for protein structure quality assessment.
+\newblock {\em BMC Bioinformatics}, 20(1):299, 2019.
+\newblock \doi{10.1186/s12859-019-2898-y}.
+
+\bibitem{Zhou2011}
+Zhou, H., and Skolnick, J.
+\newblock GOAP: A generalized orientation-dependent, all-atom statistical potential for protein structure prediction.
+\newblock {\em Biophysical Journal}, 101(8):2043--2052, 2011.
+\newblock \doi{10.1016/j.bpj.2011.09.012}.
+
+\bibitem{Zhu2020}
+Zhu, X., Liu, L., He, J., Fang, T., Xiong, Y., and Mitchell, J. C.
+\newblock iPNHOT: A knowledge-based approach for identifying protein--nucleic acid interaction hot spots.
+\newblock {\em BMC Bioinformatics}, 21(1):289, 2020.
+\newblock \doi{10.1186/s12859-020-03636-w}.
+
+
+
+\printindex
+
+\end{document}
