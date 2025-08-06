@@ -2,15 +2,15 @@ import os
 import shutil
 import re
 
-# --- CONFIGURATION ---
+#  CONFIGURATION 
 fasta_file = 'non_redundant_30pc.fasta'
 all_pdb_dir = 'nucleo_dna_pdbs'           # Folder with all pdb files
 output_dir = 'filtered_pdbs_30'       # Folder to store filtered pdbs
 
-# --- CREATE OUTPUT DIRECTORY IF NOT EXISTS ---
+#  CREATE OUTPUT DIRECTORY IF NOT EXISTS 
 os.makedirs(output_dir, exist_ok=True)
 
-# --- EXTRACT PDB IDs FROM FASTA ---
+#  EXTRACT PDB IDs FROM FASTA 
 pdb_ids = set()
 with open(fasta_file, 'r') as file:
     for line in file:
@@ -21,7 +21,7 @@ with open(fasta_file, 'r') as file:
 
 print(f"Found {len(pdb_ids)} unique PDB IDs in FASTA.")
 
-# --- COPY MATCHING PDB FILES ---
+#  COPY MATCHING PDB FILES 
 copied = 0
 for pdb_id in pdb_ids:
     pdb_filename = f"{pdb_id}.pdb"
@@ -34,4 +34,4 @@ for pdb_id in pdb_ids:
     else:
         print(f"[Warning] {pdb_filename} not found in {all_pdb_dir}")
 
-print(f"\n✅ Copied {copied} matching PDB files to {output_dir}")
+print(f"\n Copied {copied} matching PDB files to {output_dir}")
