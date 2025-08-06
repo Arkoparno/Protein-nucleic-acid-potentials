@@ -4,13 +4,13 @@ import math
 import numpy as np
 import pandas as pd
 
-# ─── CONFIGURATION ──────────────────────────────────────────────
+#  CONFIGURATION 
 COM_DIR            = "pdb_separate_COMs"
 INTERACTIONS_CSV   = "interactions.csv"
 OUTPUT_CSV         = "interaction_orientations.csv"
 MIN_VALID_DISTANCE = 0.0  # Å — keep all vectors, even close ones
 
-# ─── TRACK ALREADY WRITTEN PDBs ─────────────────────────────────
+#  TRACK ALREADY WRITTEN PDBs 
 already_done = set()
 if os.path.exists(OUTPUT_CSV):
     with open(OUTPUT_CSV, newline="") as f:
@@ -18,7 +18,6 @@ if os.path.exists(OUTPUT_CSV):
         for row in reader:
             already_done.add(row["pdb_id"])
 
-# ─── CREATE HEADER IF FILE DOESN’T EXIST ────────────────────────
 if not os.path.exists(OUTPUT_CSV):
     with open(OUTPUT_CSV, "w", newline="") as outf:
         writer = csv.writer(outf)
@@ -30,7 +29,7 @@ if not os.path.exists(OUTPUT_CSV):
             "theta_deg", "phi_deg"
         ])
 
-# ─── ORIENTATION COMPUTATION ───────────────────────────────────
+#  ORIENTATION COMPUTATION 
 def compute_orientations_for_block(pdb_id, block_rows):
     prot_path = os.path.join(COM_DIR, f"{pdb_id}_protein_COM.csv")
     dna_path  = os.path.join(COM_DIR, f"{pdb_id}_dna_COM.csv")
@@ -99,7 +98,7 @@ def compute_orientations_for_block(pdb_id, block_rows):
 
     return orientations
 
-# ─── MAIN SCRIPT ────────────────────────────────────────────────
+#  MAIN SCRIPT 
 with open(INTERACTIONS_CSV, newline="") as inf, \
      open(OUTPUT_CSV, "a", newline="") as outf:
 
@@ -136,4 +135,4 @@ with open(INTERACTIONS_CSV, newline="") as inf, \
             writer.writerow(r)
         print(f"[✓] {current_pdb}: wrote {len(results)} orientations")
 
-print("\n✅ All done — orientations saved to:", OUTPUT_CSV)
+print("\n All done — orientations saved to:", OUTPUT_CSV)
