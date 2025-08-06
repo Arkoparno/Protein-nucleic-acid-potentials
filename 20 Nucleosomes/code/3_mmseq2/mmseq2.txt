@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Input FASTA file
+INPUT_FASTA="all_proteins.fasta"
+
+# Loop through 1 to 100% sequence identity
+for i in {1..100}
+do
+    # Convert percentage to decimal (e.g., 25 → 0.25)
+    j=$(awk "BEGIN {printf \"%.2f\", $i/100}")
+
+    # Create and move into a subdirectory for this identity
+    mkdir -p "$i"
+    cd "$i"
+
+    # Define names for MMseqs2 files and output
+    DB_NAME="proteins_db_$i"
+    CLUSTER_DB="clustered_db_$i"
+    TMP_DIR="tmp_dir_$i"
+    REP_DB="cluster_representatives_db_$i"
+    OUTPUT_FASTA="non_redundant_${i}pc.fasta"
+
+    # Make temporary directory
+    mkdir -p "$TMP_DIR"
+
+    # Step 1: Convert FASTA to MMseqs2 DB
+    mmseqs createdb "../$INPUT_FASTA" "$DB_NAME"
+
+    # Step 2: Cluster with identity $j, relaxed coverage
+    mmseqs cluster "$DB_NAME" "$CLUSTER_DB" "$TMP_DIR" --min-seq-id $j -c 0.5 --cov-mode 0
+
+    # Step 3: Get representative sequences
+    mmseqs createsubdb "$CLUSTER_DB" "$DB_NAME" "$REP_DB"
+
+    # Step 4: Convert representative sequences to FASTA
+    mmseqs result2flat "$DB_NAME" "$DB_NAME" "$REP_DB" "$OUTPUT_FASTA"
+
+    # Go back to parent directory
+    cd ..
+done
